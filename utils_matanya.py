@@ -102,8 +102,19 @@ def get_running_window_numpy(seq, window_size=8):
     windows = sliding_window_view(dna_array, window_size)
     return pd.Series(["".join(window) for window in windows])
 
-def locus_to_file_name(locus):
-    pass
+
+def clean_locus_name(locus_input):
+    """
+    Cleans special characters from locus names.
+    Accepts string, Series, or Index.
+    """
+    if isinstance(locus_input, pd.Series) or isinstance(locus_input, pd.Index):
+        return locus_input.astype(str).str.replace(r'[^a-zA-Z0-9_-]', '_', regex=True)
+    elif isinstance(locus_input, str):
+        return re.sub(r'[^a-zA-Z0-9_-]', '_', locus_input)
+    else:
+        raise TypeError("Expected a string, Series, or Index of strings.")
+
 
 
 def create_heatmap(tf_2_seq,

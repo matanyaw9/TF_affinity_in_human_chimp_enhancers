@@ -1,5 +1,5 @@
 import os
-import re
+import json
 import argparse
 import numpy as np
 import pandas as pd
@@ -7,6 +7,15 @@ import utils_matanya as um
 
 # I made this file to be able to run it as jobs for the wexac :) 
 # It is essentially the same as the notebook file
+
+# todo: These will be used for titles and for file names
+TF_AFFINITY_INSIDE_ANCESTRAL_SEQ_UNFILTERED = "Unfiltered TF Affinity inside Ancestral Sequence"
+TF_AFFINITY_INSIDE_DERIVED_SEQ_UNFILTERED = "Unfiltered TF Affinity inside Derived Sequence"
+TF_AFFINITY_INSIDE_ANCESTRAL_SEQ_FILTERED = "Filtered TF Affinity inside Ancestral Sequence"
+TF_AFFINITY_INSIDE_DERIVED_SEQ_FILTERED = "Filtered TF Affinity inside Derived Sequence"
+TF_AFFINITY_DIFFERENCE_DERIVED_ANCESTRAL_UNFILTERED = "Unfiltered TF Affinity Difference Derived - Ancestral"
+TF_AFFINITY_DIFFERENCE_DERIVED_ANCESTRAL_FILTERED = "Filtered TF Affinity Difference Derived - Ancestral"
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Create TF to loci files.")
@@ -29,6 +38,14 @@ def check_args(args):
         raise ValueError("Window size must be greater than 0.")
     if args.start_index < 0:
         raise ValueError("Start index must be greater than or equal to 0.")
+    
+
+def save_with_metadata(df, path, metadata: dict):
+    with open(path, 'w') as f:
+        for key, value in metadata.items():
+            f.write(f"# {key}: {value}\n")
+        df.to_csv(f)
+
 
 
 def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_SIZE:int, START_INDEX:int, END_INDEX:int, escore_threshold:float=0.35):
@@ -51,16 +68,27 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
     escore_df, zscore_df = all_8mer_pbm_df['E-score'], all_8mer_pbm_df['Z-score']
 
     # Read the MPRA file
-    # ! This code is updated to read the full file and not only the differentially expressing oligos, so the relevant mpra file must be provided
     columns_needed = ['oligo', 'sequence_ancestral', 'sequence_derived']
     mpra_df = pd.read_csv(MPRA_FILE, usecols=columns_needed)    # We will have a look only at the differencially expressing oligos
 
     for i, row in mpra_df.iloc[START_INDEX:END_INDEX, :].iterrows():
-        locus = re.sub(r'[^a-zA-Z0-9_-]', '_', row['oligo'])
+        clean_locus = um.clean_locus_name(row['oligo'])
+        real_locus = row['oligo']
+
+        metadata = {"original_locus": real_locus,
+                    "ancestral_sequence": row['sequence_ancestral'],
+                    "derived_sequence": row['sequence_derived'],
+                    "window_size": WINDOW_SIZE,
+                    "escore_threshold": escore_threshold,}
+        
         # Save the TF z-scores for the two versions of the locus
-        locus_dir = os.path.join(OUTPUT_DIR, locus)
+        locus_dir = os.path.join(OUTPUT_DIR, clean_locus)
         os.makedirs(locus_dir, exist_ok=True)
-            
+
+        meta_path = os.path.join(locus_dir, "metadata.json")
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=4)
+
         # Get the ancestral and derived DNA sequences
         anc_seq = row['sequence_ancestral'].upper()
         der_seq = row['sequence_derived'].upper()
@@ -91,9 +119,9 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
         diff_pbm_df_unfiltered_T = der_zscore_df_unfiltered_T - anc_zscore_df_unfiltered_T
         diff_pbm_df_unfiltered_T.to_csv(os.path.join(locus_dir, "Difference_PBM_unfiltered.csv" ))
 
-        um.create_heatmap(anc_zscore_df_unfiltered_T, title="TF Affinity in Ancestral Sequence (unfiltered)", locus=locus, path=locus_dir)
-        um.create_heatmap(der_zscore_df_unfiltered_T, title="TF Affinity in Derived Sequence (unfiltered)", locus=locus, path=locus_dir)
-        um.create_heatmap(diff_pbm_df_unfiltered_T, title="TF Affinity Difference: Derived - Ancestral (unfiltered)", locus=locus, path=locus_dir)
+        um.create_heatmap(anc_zscore_df_unfiltered_T, title="TF Affinity in Ancestral Sequence (unfiltered)", locus=clean_locus, path=locus_dir)
+        um.create_heatmap(der_zscore_df_unfiltered_T, title="TF Affinity in Derived Sequence (unfiltered)", locus=clean_locus, path=locus_dir)
+        um.create_heatmap(diff_pbm_df_unfiltered_T, title="TF Affinity Difference: Derived - Ancestral (unfiltered)", locus=clean_locus, path=locus_dir)
 
         # Filter on E-score. E-score must be above 0.35 for at least on of the sequences to be considered
         # Filtering starts here:
@@ -115,9 +143,9 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
         diff_pbm_df_filtered_T = diff_pbm_df_unfiltered_T.where(der_anc_diff_mask_T, 0)
         diff_pbm_df_filtered_T.to_csv(os.path.join(locus_dir, "Difference_PBM_filtered.csv" ))
 
-        um.create_heatmap(anc_zscore_df_filtered_T, title="TF Affinity in Ancestral Sequence (Filtered)", locus=locus, path=locus_dir)
-        um.create_heatmap(der_zscore_df_filtered_T, title="TF Affinity in Derived Sequence (Filtered)", locus=locus, path=locus_dir)
-        um.create_heatmap(diff_pbm_df_filtered_T, title="TF Affinity Difference: Derived - Ancestral (Filtered)", locus=locus, path=locus_dir)
+        um.create_heatmap(anc_zscore_df_filtered_T, title="TF Affinity in Ancestral Sequence (Filtered)", locus=clean_locus, path=locus_dir)
+        um.create_heatmap(der_zscore_df_filtered_T, title="TF Affinity in Derived Sequence (Filtered)", locus=clean_locus, path=locus_dir)
+        um.create_heatmap(diff_pbm_df_filtered_T, title="TF Affinity Difference: Derived - Ancestral (Filtered)", locus=clean_locus, path=locus_dir)
 
         print(f"Done with {i+1}/{mpra_df.shape[0]}")
 
