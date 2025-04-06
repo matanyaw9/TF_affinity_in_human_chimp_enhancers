@@ -102,6 +102,32 @@ def get_running_window_numpy(seq, window_size=8):
     windows = sliding_window_view(dna_array, window_size)
     return pd.Series(["".join(window) for window in windows])
 
+def create_overall_binding_clustermap(csv_file, title, output_dir, file_name):
+    sns.set(style="white")
+    df = pd.read_csv(csv_file, index_col=0)
+
+    # Create clustered heatmap
+    clustermap = sns.clustermap(
+        df,              # TFs = rows, loci = columns
+        cmap="coolwarm",
+        center=0,
+        figsize=(16, 10),
+        xticklabels=False,        # Hide x labels if too many loci
+        yticklabels=True,         # Show TF names
+        cbar_kws={'label': 'Binding Strength'},
+        method='average',         # Clustering method (can be 'ward', 'single', etc.)
+        metric='euclidean'        # Distance metric
+    )
+    
+
+    # clustermap.fig.suptitle("Clustermap of Max TF Binding (All Loci)", fontsize=16)
+    clustermap.fig.suptitle(title, fontsize=16)
+
+    # Save the figure,,
+    clustermap.savefig(os.path.join(output_dir, f"{file_name}.png"))
+    plt.close()
+
+
 
 def clean_locus_name(locus_input):
     """
@@ -114,6 +140,11 @@ def clean_locus_name(locus_input):
         return re.sub(r'[^a-zA-Z0-9_-]', '_', locus_input)
     else:
         raise TypeError("Expected a string, Series, or Index of strings.")
+
+def say_hello(text):
+    print("Hello, world!")
+    print(text)
+    return None
 
 
 
@@ -154,9 +185,6 @@ def create_heatmap(tf_2_seq,
 
     # plt.show()  # Display the heatmap
     plt.close()
-
-
-
 
 # Computer Science Nerd Alert! 
 # The following two functions are used to convert a sequence into it's index. 
