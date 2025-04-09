@@ -65,6 +65,7 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     all_8mer_pbm_df = pd.read_csv(PBM_FILE, index_col=0, header=[0,1])
+    all_8mer_pbm_df.columns = pd.MultiIndex.from_tuples([(lvl1, tf.split('_')[0]) for lvl1, tf in all_8mer_pbm_df.columns])
     escore_df, zscore_df = all_8mer_pbm_df['E-score'], all_8mer_pbm_df['Z-score']
 
     # Read the MPRA file
