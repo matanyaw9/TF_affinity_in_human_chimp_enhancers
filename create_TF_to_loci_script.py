@@ -67,6 +67,8 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
     all_8mer_pbm_df = pd.read_csv(PBM_FILE, index_col=0, header=[0,1])
     all_8mer_pbm_df.columns = pd.MultiIndex.from_tuples([(lvl1, tf.split('_')[0]) for lvl1, tf in all_8mer_pbm_df.columns])
     escore_df, zscore_df = all_8mer_pbm_df['E-score'], all_8mer_pbm_df['Z-score']
+    escore_df = escore_df.loc[:, ~escore_df.columns.duplicated()]
+    zscore_df = zscore_df.loc[:, ~zscore_df.columns.duplicated()]
 
     # Read the MPRA file
     columns_needed = ['oligo', 'sequence_ancestral', 'sequence_derived']
@@ -133,6 +135,9 @@ def create_tf_to_loci_files(MPRA_FILE:str, PBM_FILE:str, OUTPUT_DIR:str, WINDOW_
 
         anc_zscore_df_filtered_T = anc_zscore_df_unfiltered.where(anc_escore_df, 0).T
         der_zscore_df_filtered_T = der_zscore_df_unfiltered.where(der_escore_df, 0).T
+        anc_zscore_df_filtered_T.columns = range(anc_zscore_df_filtered_T.shape[1])
+        der_zscore_df_filtered_T.columns = range(der_zscore_df_filtered_T.shape[1])
+        
         anc_zscore_df_filtered_T.to_csv(os.path.join(locus_dir, "Ancestral_PBM_filtered.csv" ))
         der_zscore_df_filtered_T.to_csv(os.path.join(locus_dir, "Derived_PBM_filtered.csv" ))
 
